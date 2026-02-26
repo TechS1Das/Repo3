@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       repos:
-        description: "Comma-separated repository URLs"
+        description: "Enter one per line: folderName=repoURL"
         required: true
 
 permissions:
@@ -27,21 +27,22 @@ jobs:
 
       - name: Merge repositories as subtrees
         run: |
-          IFS=',' read -ra REPOS <<< "${{ github.event.inputs.repos }}"
+          echo "${{ github.event.inputs.repos }}" > repos.txt
 
-          for REPO in "${REPOS[@]}"; do
+          while IFS='=' read -r FOLDER REPO; do
+            FOLDER=$(echo "$FOLDER" | xargs)
             REPO=$(echo "$REPO" | xargs)
-            NAME=$(basename -s .git $REPO)
 
-            echo "Merging $NAME"
+            echo "Merging $REPO into folder $FOLDER"
 
-            git remote add $NAME $REPO
-            git fetch $NAME
+            git remote add $FOLDER $REPO
+            git fetch $FOLDER
 
-            git subtree add --prefix=$NAME $NAME main
+            git subtree add --prefix=$FOLDER $FOLDER main
 
-            git remote remove $NAME
-          done
+            git remote remove $FOLDER
+
+          done < repos.txt
 
       - name: Push changes
         run: git push origin main
