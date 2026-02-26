@@ -1,0 +1,47 @@
+name: Merge Multiple Repositories
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Comma-separated repository URLs"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Merge repositories as subtrees
+        run: |
+          IFS=',' read -ra REPOS <<< "${{ github.event.inputs.repos }}"
+
+          for REPO in "${REPOS[@]}"; do
+            REPO=$(echo "$REPO" | xargs)
+            NAME=$(basename -s .git $REPO)
+
+            echo "Merging $NAME"
+
+            git remote add $NAME $REPO
+            git fetch $NAME
+
+            git subtree add --prefix=$NAME $NAME main
+
+            git remote remove $NAME
+          done
+
+      - name: Push changes
+        run: git push origin main
